@@ -1,0 +1,26 @@
+# Caddyfile for the microservice layout.
+# Caddy only knows the gateway and the web frontend; the gateway fans out to the
+# individual services.
+
+{$SITE_ADDRESS:http://localhost} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy gateway:8080
+	}
+	handle /healthz {
+		reverse_proxy gateway:8080
+	}
+	handle /readyz {
+		reverse_proxy gateway:8080
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

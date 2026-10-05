@@ -1,0 +1,38 @@
+name: Deploy
+
+# Manual or tag-triggered deploy. Requires repository secrets:
+#   DEPLOY_HOST      server hostname/IP
+#   DEPLOY_USER      ssh user
+#   DEPLOY_SSH_KEY   private key with access to the host
+#   DEPLOY_PATH      directory containing the checked-out repo on the server
+#
+# The host must already have the repo cloned and an .env file in place.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  deploy:
+    name: Deploy over SSH
+    runs-on: ubuntu-latest
+    if: ${{ secrets.DEPLOY_HOST != '' }}
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Pull and roll out
+        run: |
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd '${{ secrets.DEPLOY_PATH }}' && \
+             git fetch --all && git checkout '${{ github.ref_name }}' && \
+             docker compose -f deploy/compose/docker-compose.yml --env-file deploy/compose/.env up -d --build"
+
+      - name: Smoke test
+        run: |
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "curl -fsS http://localhost/healthz"

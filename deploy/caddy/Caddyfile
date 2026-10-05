@@ -1,0 +1,30 @@
+# Caddyfile — reverse proxy with automatic HTTPS for a real domain.
+#
+# SITE_ADDRESS is provided by the compose environment. Set it to a bare domain
+# (e.g. inbox.example.com) for automatic Let's Encrypt certificates, or to
+# http://localhost for a local run without TLS.
+
+{$SITE_ADDRESS:http://localhost} {
+	encode zstd gzip
+
+	# API routes (including health checks) go to the Go service.
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+	handle /healthz {
+		reverse_proxy api:8080
+	}
+	handle /readyz {
+		reverse_proxy api:8080
+	}
+
+	# Everything else is served by Next.js.
+	handle {
+		reverse_proxy web:3000
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

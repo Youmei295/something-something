@@ -1,0 +1,36 @@
+{
+  "name": "inbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Inbox: visitors send messages/files to a host who replies. Backend services run with go, frontend with npm.",
+  "scripts": {
+    "migrate": "cd src/backend && go run ./cmd/migrate",
+    "seed": "cd src/backend && go run ./cmd/migrate -seed",
+
+    "api": "cd src/backend && HTTP_ADDR=:8080 go run ./cmd/api",
+    "identity": "cd src/backend && HTTP_ADDR=:8081 go run ./cmd/identity",
+    "submission": "cd src/backend && HTTP_ADDR=:8082 go run ./cmd/submission",
+    "conversation": "cd src/backend && HTTP_ADDR=:8083 go run ./cmd/conversation",
+    "attachment": "cd src/backend && HTTP_ADDR=:8084 go run ./cmd/attachment",
+    "gateway": "cd src/backend && GATEWAY_ADDR=:8080 go run ./cmd/gateway",
+    "worker": "cd src/backend && go run ./cmd/worker",
+
+    "backend:build": "mkdir -p bin && cd src/backend && go build -o ../../bin/ ./cmd/...",
+    "backend:test": "cd src/backend && go test ./...",
+    "backend:lint": "cd src/backend && gofmt -l . && go vet ./...",
+
+    "web:install": "npm --prefix src/frontend install",
+    "web": "npm --prefix src/frontend run dev",
+    "web:build": "npm --prefix src/frontend run build",
+    "web:lint": "npm --prefix src/frontend run lint",
+
+    "infra:up": "docker compose -f deploy/compose/docker-compose.yml --env-file deploy/compose/.env up -d postgres minio",
+    "infra:down": "docker compose -f deploy/compose/docker-compose.yml --env-file deploy/compose/.env down",
+
+    "up": "docker compose -f deploy/compose/docker-compose.yml --env-file deploy/compose/.env up -d --build",
+    "down": "docker compose -f deploy/compose/docker-compose.yml --env-file deploy/compose/.env down",
+    "logs": "docker compose -f deploy/compose/docker-compose.yml --env-file deploy/compose/.env logs -f --tail=100",
+    "micro:up": "docker compose -f deploy/compose/docker-compose.micro.yml --env-file deploy/compose/.env up -d --build",
+    "micro:down": "docker compose -f deploy/compose/docker-compose.micro.yml --env-file deploy/compose/.env down"
+  }
+}

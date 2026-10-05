@@ -1,0 +1,1 @@
+Placeholder kept so the public/ directory exists in the build context.
