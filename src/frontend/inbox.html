@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inbox — Host inbox</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <a class="brand" href="index.html">Inbox</a>
+      <nav>
+        <span id="who" class="muted small"></span>
+        <button id="logout" class="btn btn-secondary" type="button">Sign out</button>
+      </nav>
+    </header>
+
+    <main>
+      <h1>Inbox</h1>
+
+      <div class="row wrap" style="margin:16px 0;">
+        <input id="search" class="input grow" style="max-width:280px;" placeholder="Search…">
+        <select id="status" class="input" style="max-width:160px;">
+          <option value="open">Open</option>
+          <option value="archived">Archived</option>
+          <option value="all">All</option>
+        </select>
+        <button id="refresh" class="btn btn-secondary" type="button">Refresh</button>
+        <span id="total" class="muted small"></span>
+      </div>
+
+      <div id="list" class="list">
+        <p class="empty">Loading…</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="api.js"></script>
+  <script>
+    var listEl = $("#list");
+    var state = { status: "open", q: "" };
+
+    async function load() {
+      listEl.replaceChildren(h("p", { class: "empty", text: "Loading…" }));
+      try {
+        var data = await api.listConversations({ status: state.status, q: state.q, limit: 50 });
+        $("#total").textContent = data.total + " total";
+        render(data.items);
+      } catch (err) {
+        listEl.replaceChildren(h("p", { class: "empty", text: "Could not load conversations." }));
+      }
+    }
+
+    function render(items) {
+      if (!items.length) {
+        listEl.replaceChildren(h("p", { class: "empty", text: "No conversations." }));
+        return;
+      }
+      listEl.replaceChildren.apply(listEl, items.map(function (c) {
+        var title = h("div", { class: "row" },
+          c.unread ? h("span", { class: "dot" }) : null,
+          h("span", { class: "grow", text: c.subject || "(no subject)" })
+        );
+        var sub = h("p", { class: "muted small", text: c.visitor_name + " · " + c.visitor_email });
+        return h("a", { class: "item", href: "thread.html?id=" + encodeURIComponent(c.id) },
+          h("div", { style: "min-width:0;" }, title, sub),
+          h("span", { class: "muted small", style: "white-space:nowrap;", text: formatDate(c.last_activity_at) })
+        );
+      }));
+    }
+
+    var searchTimer;
+    $("#search").addEventListener("input", function (e) {
+      state.q = e.target.value;
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(load, 250);
+    });
+    $("#status").addEventListener("change", function (e) { state.status = e.target.value; load(); });
+    $("#refresh").addEventListener("click", load);
+    $("#logout").addEventListener("click", logout);
+
+    (async function () {
+      var user = await requireAuth();
+      if (!user) return;
+      $("#who").textContent = user.email;
+      await load();
+    })();
+  </script>
+</body>
+</html>

@@ -53,7 +53,7 @@ func run(name string, enable transporthttp.Enable) error {
 		}
 	}
 
-	api, err := core.API(ctx, enable)
+	api, err := core.API(enable)
 	if err != nil {
 		return err
 	}

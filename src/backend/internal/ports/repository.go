@@ -52,14 +52,12 @@ type UserRepository interface {
 	Create(ctx context.Context, u *domain.User) error
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
-	Count(ctx context.Context) (int, error)
 }
 
 type SessionRepository interface {
 	Create(ctx context.Context, s *domain.Session) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Session, error)
 	Delete(ctx context.Context, id uuid.UUID) error
-	DeleteExpired(ctx context.Context, before time.Time) (int64, error)
 }
 
 type ConversationRepository interface {
@@ -74,7 +72,6 @@ type ConversationRepository interface {
 type MessageRepository interface {
 	Create(ctx context.Context, m *domain.Message) error
 	ListByConversation(ctx context.Context, conversationID uuid.UUID) ([]domain.Message, error)
-	GetByEmailMessageID(ctx context.Context, emailMessageID string) (*domain.Message, error)
 }
 
 type AttachmentRepository interface {

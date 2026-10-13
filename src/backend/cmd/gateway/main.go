@@ -28,7 +28,7 @@ func run() error {
 	}
 	log := logger.New(cfg.Env).With(slog.String("service", "gateway"))
 
-	gw, err := gateway.New(cfg.Gateway, log)
+	gw, err := gateway.New(cfg, log)
 	if err != nil {
 		return err
 	}

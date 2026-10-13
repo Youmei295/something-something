@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inbox — Conversation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <a class="brand" href="inbox.html">Inbox</a>
+      <nav><a class="muted small" href="inbox.html">← Back to inbox</a></nav>
+    </header>
+
+    <main>
+      <div id="content"><p class="muted">Loading…</p></div>
+    </main>
+  </div>
+
+  <script src="api.js"></script>
+  <script>
+    var content = $("#content");
+    var id = new URLSearchParams(location.search).get("id");
+    var detail = null;
+
+    function messageNode(m, visitorName) {
+      var author = m.direction === "outbound" ? "Host" : visitorName;
+      return h("div", { class: "msg" + (m.direction === "outbound" ? " outbound" : "") },
+        h("div", { class: "meta" }, h("span", { text: author }), h("span", { text: formatDate(m.created_at) })),
+        h("p", { class: "body", text: m.body })
+      );
+    }
+
+    function attachmentsNode(attachments) {
+      if (!attachments.length) return null;
+      var rows = attachments.map(function (a) {
+        var btn = h("button", { class: "btn btn-secondary", type: "button", text: "Download" });
+        if (a.scan_status !== "clean") btn.disabled = true;
+        else btn.addEventListener("click", async function () {
+          try {
+            var res = await api.downloadUrl(a.id);
+            window.open(res.url, "_blank", "noopener,noreferrer");
+          } catch (e) { /* ignore */ }
+        });
+        return h("li", { class: "att" },
+          h("div", { style: "min-width:0;" },
+            h("div", { class: "name", text: a.filename }),
+            h("div", { class: "muted small", text: formatBytes(a.size) + " · " + a.scan_status })
+          ),
+          btn
+        );
+      });
+      return h("div", { class: "card" }, h("h2", { text: "Attachments" }), h("ul", { style: "list-style:none;margin:0;padding:0;" }, ...rows));
+    }
+
+    function replyForm() {
+      var error = h("p", { class: "alert hidden" });
+      var textarea = h("textarea", { class: "input", placeholder: "Write your reply…", required: true });
+      var file = h("input", { type: "file", accept: "image/png,image/jpeg,image/gif,image/webp,application/pdf" });
+      var btn = h("button", { class: "btn", type: "submit", text: "Send reply" });
+
+      var form = h("form", { class: "card" },
+        h("h2", { text: "Reply" }), error, textarea,
+        h("div", { class: "field" }, file),
+        btn
+      );
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        if (!textarea.value.trim()) return;
+        hideAlert(error);
+        btn.disabled = true;
+        btn.textContent = "Sending…";
+        try {
+          var ids = [];
+          if (file.files[0]) ids.push(await uploadFile(file.files[0]));
+          await api.reply(id, textarea.value, ids);
+          await load();
+        } catch (err) {
+          showAlert(error, err instanceof ApiError ? err.message : "Failed to send reply.");
+          btn.disabled = false;
+          btn.textContent = "Send reply";
+        }
+      });
+      return form;
+    }
+
+    function render(d) {
+      detail = d;
+      var c = d.conversation;
+
+      var archive = h("button", { class: "btn btn-secondary", type: "button", text: c.status === "archived" ? "Restore" : "Archive" });
+      archive.addEventListener("click", async function () {
+        await api.updateConversation(id, { archived: c.status !== "archived" });
+        location.href = "inbox.html";
+      });
+      var del = h("button", { class: "btn btn-danger", type: "button", text: "Delete" });
+      del.addEventListener("click", async function () {
+        if (!confirm("Delete this conversation?")) return;
+        await api.deleteConversation(id);
+        location.href = "inbox.html";
+      });
+
+      var header = h("div", { class: "row between", style: "align-items:flex-start;" },
+        h("div", {},
+          h("h1", { text: c.subject || "(no subject)" }),
+          h("p", { class: "muted small", text: c.visitor_name + " · " + c.visitor_email })
+        ),
+        h("div", { class: "row" }, archive, del)
+      );
+
+      var messages = h("div", {}, ...d.messages.map(function (m) { return messageNode(m, c.visitor_name); }));
+      var atts = attachmentsNode(d.attachments);
+
+      content.replaceChildren(header, messages, atts || h("span"), replyForm());
+    }
+
+    async function load() {
+      var d = await api.getConversation(id);
+      render(d);
+      if (d.conversation.unread) api.updateConversation(id, { read: true }).catch(function () {});
+    }
+
+    (async function () {
+      if (!(await requireAuth())) return;
+      if (!id) { content.replaceChildren(h("p", { class: "muted", text: "Conversation not found." })); return; }
+      try { await load(); }
+      catch (e) { content.replaceChildren(h("p", { class: "muted", text: "Conversation not found." })); }
+    })();
+  </script>
+</body>
+</html>

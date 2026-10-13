@@ -1,0 +1,53 @@
+name: Deploy frontend to GitHub Pages
+
+# Publishes the static frontend (src/frontend) to GitHub Pages on every push to
+# main that touches the frontend. The backend is not involved.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/frontend/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Allow the workflow to publish to Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; newer pushes cancel in-progress ones.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          # Turn on GitHub Pages automatically (Source: GitHub Actions) on the
+          # first run, so no manual Settings change is required.
+          enablement: true
+
+      # Package src/frontend exactly as-is (no build step).
+      - name: Upload static site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: src/frontend
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

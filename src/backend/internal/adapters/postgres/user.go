@@ -40,12 +40,6 @@ func (r *userRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, err
 	return scanUser(r.q.QueryRow(ctx, q, id))
 }
 
-func (r *userRepo) Count(ctx context.Context) (int, error) {
-	var n int
-	err := r.q.QueryRow(ctx, `SELECT count(*) FROM users`).Scan(&n)
-	return n, mapErr(err)
-}
-
 func scanUser(row interface {
 	Scan(dest ...any) error
 }) (*domain.User, error) {

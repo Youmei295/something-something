@@ -21,6 +21,7 @@ var (
 	ErrValidation    = errors.New("validation failed")
 	ErrPayloadTooBig = errors.New("payload too large")
 	ErrUnsupported   = errors.New("unsupported media type")
+	ErrUnavailable   = errors.New("service unavailable")
 )
 
 // Direction marks whether a message came from a visitor or the host.

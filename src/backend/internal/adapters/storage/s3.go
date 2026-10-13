@@ -1,5 +1,5 @@
 // Package storage implements ports.Storage against any S3-compatible backend.
-// The same adapter targets MinIO locally and AWS S3 in production by changing
+// The same adapter targets SeaweedFS (or MinIO/S3) locally and AWS S3 in production by changing
 // configuration only.
 package storage
 
@@ -36,7 +36,8 @@ type S3 struct {
 
 // New builds an S3 adapter. When PublicEndpoint is set, presigned URLs are
 // signed against it so browsers can reach storage behind a different host.
-func New(ctx context.Context, opts Options) (*S3, error) {
+// Creating a client does not contact the server.
+func New(opts Options) (*S3, error) {
 	client, err := minio.New(opts.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(opts.AccessKey, opts.SecretKey, ""),
 		Secure: opts.UseSSL,
@@ -58,7 +59,6 @@ func New(ctx context.Context, opts Options) (*S3, error) {
 		}
 	}
 
-	_ = ctx
 	return &S3{client: client, presign: presign, bucket: opts.Bucket, region: opts.Region}, nil
 }
 
@@ -111,7 +111,6 @@ func (s *S3) Stat(ctx context.Context, key string) (ports.ObjectInfo, error) {
 	return ports.ObjectInfo{
 		Size:        info.Size,
 		ContentType: info.ContentType,
-		ETag:        info.ETag,
 	}, nil
 }
 

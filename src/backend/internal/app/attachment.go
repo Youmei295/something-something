@@ -48,8 +48,14 @@ type UploadTicket struct {
 	ExpiresIn    int       `json:"expires_in"`
 }
 
-// RequestUpload validates the file and returns a presigned PUT URL.
+// RequestUpload validates the file and returns a presigned PUT URL. It ensures
+// the bucket exists first, so object storage is only required when attachments
+// are actually used (not at API startup).
 func (s *AttachmentService) RequestUpload(ctx context.Context, in RequestUploadInput) (*UploadTicket, error) {
+	if err := s.storage.EnsureBucket(ctx); err != nil {
+		return nil, fmt.Errorf("%w: object storage unavailable", domain.ErrUnavailable)
+	}
+
 	in.Filename = strings.TrimSpace(in.Filename)
 	in.ContentType = strings.ToLower(strings.TrimSpace(in.ContentType))
 
@@ -149,24 +155,3 @@ func (s *AttachmentService) DownloadURL(ctx context.Context, id uuid.UUID) (stri
 	}
 	return s.storage.PresignGet(ctx, attachment.StorageKey, attachment.Filename, attachment.ContentType, s.presignTTL)
 }
-
-// CleanupOrphans removes uploads that were never linked to a message.
-func (s *AttachmentService) CleanupOrphans(ctx context.Context, olderThan time.Duration) (int, error) {
-	cutoff := s.clock.Now().Add(-olderThan)
-	orphans, err := s.store.Repos().Attachments.ListOrphans(ctx, cutoff)
-	if err != nil {
-		return 0, err
-	}
-	removed := 0
-	for _, a := range orphans {
-		_ = s.storage.Remove(ctx, a.StorageKey)
-		if err := s.store.Repos().Attachments.Delete(ctx, a.ID); err != nil {
-			continue
-		}
-		removed++
-	}
-	return removed, nil
-}
-
-// MaxUploadBytes exposes the configured limit to transports for validation.
-func (s *AttachmentService) MaxUploadBytes() int64 { return s.maxBytes }

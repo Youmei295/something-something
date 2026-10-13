@@ -108,3 +108,18 @@ func TestRouter_CORS(t *testing.T) {
 		t.Fatalf("Allow-Origin = %q", got)
 	}
 }
+
+// A dev server opened on 127.0.0.1 (not localhost) must still be allowed.
+func TestRouter_CORS_LoopbackVariant(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+	req.Header.Set("Origin", "http://127.0.0.1:3000")
+	newTestAPI().Router().ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://127.0.0.1:3000" {
+		t.Fatalf("Allow-Origin = %q, want reflected loopback origin", got)
+	}
+	if rec.Header().Get("Access-Control-Allow-Credentials") != "true" {
+		t.Fatal("expected Allow-Credentials: true")
+	}
+}

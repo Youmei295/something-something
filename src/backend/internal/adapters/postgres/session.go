@@ -36,11 +36,3 @@ func (r *sessionRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	_, err := r.q.Exec(ctx, `DELETE FROM sessions WHERE id = $1`, id)
 	return mapErr(err)
 }
-
-func (r *sessionRepo) DeleteExpired(ctx context.Context, before time.Time) (int64, error) {
-	tag, err := r.q.Exec(ctx, `DELETE FROM sessions WHERE expires_at < $1`, before)
-	if err != nil {
-		return 0, mapErr(err)
-	}
-	return tag.RowsAffected(), nil
-}

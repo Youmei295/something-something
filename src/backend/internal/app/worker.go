@@ -36,21 +36,41 @@ func NewWorker(store ports.Store, mailer ports.Mailer, ids ports.IDGenerator, cl
 	}
 }
 
-// Run polls for jobs until the context is cancelled.
-func (w *Worker) Run(ctx context.Context) error {
-	ticker := time.NewTicker(w.pollInterval)
-	defer ticker.Stop()
+// workerMaxBackoff caps the retry delay after consecutive failures.
+const workerMaxBackoff = 30 * time.Second
 
+// Run polls for jobs until the context is cancelled. If the database is
+// unavailable it backs off exponentially (capped) instead of hammering it and
+// flooding the logs, then resumes at the normal poll interval once healthy.
+func (w *Worker) Run(ctx context.Context) error {
 	w.log.Info("worker started", slog.Duration("poll_interval", w.pollInterval))
+
+	delay := w.pollInterval
+	failing := false
 	for {
 		select {
 		case <-ctx.Done():
 			w.log.Info("worker stopping")
 			return ctx.Err()
-		case <-ticker.C:
-			if err := w.processBatch(ctx); err != nil {
-				w.log.Error("worker batch failed", slog.String("error", err.Error()))
+		case <-time.After(delay):
+		}
+
+		err := w.processBatch(ctx)
+		switch {
+		case err == nil:
+			if failing {
+				w.log.Info("worker reconnected")
 			}
+			failing = false
+			delay = w.pollInterval
+		default:
+			if !failing {
+				w.log.Warn("worker cannot reach dependency; backing off",
+					slog.String("error", err.Error()),
+					slog.Duration("retry_in", delay))
+			}
+			failing = true
+			delay = min(delay*2, workerMaxBackoff)
 		}
 	}
 }

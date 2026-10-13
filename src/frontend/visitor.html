@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inbox — Conversation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <a class="brand" href="index.html">Inbox</a>
+    </header>
+
+    <main>
+      <div id="content"><p class="muted">Loading…</p></div>
+    </main>
+  </div>
+
+  <script src="api.js"></script>
+  <script>
+    var content = $("#content");
+    var token = new URLSearchParams(location.search).get("token");
+
+    function messageNode(m) {
+      return h("div", { class: "msg" + (m.direction === "outbound" ? " outbound" : "") },
+        h("div", { class: "meta" },
+          h("span", { text: m.direction === "outbound" ? "Host" : "You" }),
+          h("span", { text: formatDate(m.created_at) })),
+        h("p", { class: "body", text: m.body })
+      );
+    }
+
+    function render(d) {
+      var c = d.conversation;
+      var nodes = [
+        h("h1", { text: c.subject || "(no subject)" }),
+        h("p", { class: "muted", text: "Conversation with the host" }),
+        h("div", { style: "margin-top:16px;" }, ...d.messages.map(messageNode)),
+      ];
+      if (d.attachments.length) {
+        nodes.push(h("div", { class: "card" },
+          h("h2", { text: "Attachments" }),
+          h("ul", { style: "list-style:none;margin:0;padding:0;" },
+            ...d.attachments.map(function (a) { return h("li", { class: "att", text: a.filename }); }))
+        ));
+      }
+      content.replaceChildren.apply(content, nodes);
+    }
+
+    (async function () {
+      if (!token) { content.replaceChildren(h("p", { class: "muted", text: "This conversation link is invalid." })); return; }
+      try {
+        render(await api.visitorThread(token));
+      } catch (e) {
+        content.replaceChildren(h("p", { class: "muted", text: "This conversation link is invalid or has expired." }));
+      }
+    })();
+  </script>
+</body>
+</html>

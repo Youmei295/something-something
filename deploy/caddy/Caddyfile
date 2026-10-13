@@ -1,13 +1,14 @@
-# Caddyfile — reverse proxy with automatic HTTPS for a real domain.
+# Caddyfile — TLS termination and reverse proxy for the API.
+#
+# The frontend is a static site served separately (locally on :3000, or on
+# GitHub Pages). Caddy only fronts the backend API here.
 #
 # SITE_ADDRESS is provided by the compose environment. Set it to a bare domain
-# (e.g. inbox.example.com) for automatic Let's Encrypt certificates, or to
-# http://localhost for a local run without TLS.
+# (e.g. api.example.com) for automatic HTTPS, or http://localhost locally.
 
 {$SITE_ADDRESS:http://localhost} {
 	encode zstd gzip
 
-	# API routes (including health checks) go to the Go service.
 	handle /api/* {
 		reverse_proxy api:8080
 	}
@@ -16,11 +17,6 @@
 	}
 	handle /readyz {
 		reverse_proxy api:8080
-	}
-
-	# Everything else is served by Next.js.
-	handle {
-		reverse_proxy web:3000
 	}
 
 	log {

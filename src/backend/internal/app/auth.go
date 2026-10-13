@@ -92,18 +92,25 @@ func (s *AuthService) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	return s.store.Repos().Sessions.Delete(ctx, sessionID)
 }
 
-// SeedHost creates the host account if no users exist yet. It is idempotent and
-// safe to run on every startup.
+// SeedHost ensures the configured host account exists. It is idempotent and
+// safe to run on every startup: an existing account is left untouched (its
+// password is never reset), and a missing one is created from the given
+// email/password. Returns true only when it created a new account.
 func (s *AuthService) SeedHost(ctx context.Context, email, name, password string) (bool, error) {
-	n, err := s.store.Repos().Users.Count(ctx)
-	if err != nil {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return false, errors.New("seed host: HOST_EMAIL must be set")
+	}
+
+	switch _, err := s.store.Repos().Users.GetByEmail(ctx, email); {
+	case err == nil:
+		return false, nil // already exists
+	case !errors.Is(err, domain.ErrNotFound):
 		return false, err
 	}
-	if n > 0 {
-		return false, nil
-	}
+
 	if strings.TrimSpace(password) == "" {
-		return false, errors.New("seed host: HOST_PASSWORD must be set when no users exist")
+		return false, errors.New("seed host: HOST_PASSWORD must be set to create the host account")
 	}
 	hash, err := s.hasher.Hash(password)
 	if err != nil {
@@ -112,7 +119,7 @@ func (s *AuthService) SeedHost(ctx context.Context, email, name, password string
 	now := s.clock.Now()
 	user := &domain.User{
 		ID:           s.ids.New(),
-		Email:        strings.ToLower(strings.TrimSpace(email)),
+		Email:        email,
 		PasswordHash: hash,
 		Role:         "host",
 		CreatedAt:    now,

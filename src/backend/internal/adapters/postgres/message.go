@@ -41,14 +41,3 @@ func (r *messageRepo) ListByConversation(ctx context.Context, conversationID uui
 	}
 	return out, mapErr(rows.Err())
 }
-
-func (r *messageRepo) GetByEmailMessageID(ctx context.Context, emailMessageID string) (*domain.Message, error) {
-	q := `SELECT ` + messageColumns + ` FROM messages WHERE email_message_id = $1`
-	var m domain.Message
-	err := r.q.QueryRow(ctx, q, emailMessageID).Scan(&m.ID, &m.ConversationID, &m.Direction,
-		&m.Body, &m.FromAddr, &m.ToAddr, &m.EmailMessageID, &m.InReplyTo, &m.CreatedAt)
-	if err != nil {
-		return nil, mapErr(err)
-	}
-	return &m, nil
-}

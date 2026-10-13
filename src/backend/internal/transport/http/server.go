@@ -9,6 +9,7 @@ import (
 
 	"github.com/youmei295/something-something/src/backend/internal/app"
 	"github.com/youmei295/something-something/src/backend/internal/config"
+	"github.com/youmei295/something-something/src/backend/internal/platform/cors"
 )
 
 // Enable selects which bounded context this process serves. The same HTTP
@@ -67,7 +68,7 @@ func (a *API) Router() http.Handler {
 	r.Use(requestID)
 	r.Use(logRequests(a.log))
 	r.Use(recoverPanic(a.log))
-	r.Use(cors(a.cfg.HTTP.AllowedOrigins))
+	r.Use(cors.Middleware(a.cfg.HTTP.AllowedOrigins, a.log))
 
 	r.Get("/healthz", a.handleHealth)
 	r.Get("/readyz", a.handleReady)

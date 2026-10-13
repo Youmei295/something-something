@@ -4,8 +4,6 @@ package id
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -30,16 +28,6 @@ func NewOpaqueToken(n int) (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(buf), nil
-}
-
-// NewEmailMessageID constructs a plausible RFC 5322 Message-ID for outbound mail
-// so replies can be threaded by mail clients.
-func NewEmailMessageID(domain string) string {
-	tok, err := NewOpaqueToken(12)
-	if err != nil {
-		tok = uuid.NewString()
-	}
-	return fmt.Sprintf("<%d.%s@%s>", time.Now().UnixNano(), tok, domain)
 }
 
 var (

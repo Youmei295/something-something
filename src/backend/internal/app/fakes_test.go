@@ -71,7 +71,6 @@ func (r *fakeUsers) GetByID(_ context.Context, id uuid.UUID) (*domain.User, erro
 	}
 	return nil, domain.ErrNotFound
 }
-func (r *fakeUsers) Count(context.Context) (int, error) { return len(r.s.users), nil }
 
 // ---- sessions ----
 
@@ -90,16 +89,6 @@ func (r *fakeSessions) GetByID(_ context.Context, id uuid.UUID) (*domain.Session
 func (r *fakeSessions) Delete(_ context.Context, id uuid.UUID) error {
 	delete(r.s.sessions, id)
 	return nil
-}
-func (r *fakeSessions) DeleteExpired(_ context.Context, before time.Time) (int64, error) {
-	var n int64
-	for id, s := range r.s.sessions {
-		if s.ExpiresAt.Before(before) {
-			delete(r.s.sessions, id)
-			n++
-		}
-	}
-	return n, nil
 }
 
 // ---- conversations ----
@@ -165,14 +154,6 @@ func (r *fakeMessages) ListByConversation(_ context.Context, conversationID uuid
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
 	return out, nil
-}
-func (r *fakeMessages) GetByEmailMessageID(_ context.Context, emailMessageID string) (*domain.Message, error) {
-	for _, m := range r.s.messages {
-		if m.EmailMessageID == emailMessageID {
-			return m, nil
-		}
-	}
-	return nil, domain.ErrNotFound
 }
 
 // ---- attachments ----

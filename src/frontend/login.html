@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inbox — Host sign in</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <a class="brand" href="index.html">Inbox</a>
+    </header>
+
+    <main style="max-width:380px;margin:0 auto;">
+      <h1>Host sign in</h1>
+
+      <form id="form" class="card" novalidate>
+        <p id="form-error" class="alert hidden"></p>
+
+        <div class="field">
+          <label class="label" for="email">Email</label>
+          <input id="email" type="email" class="input" required>
+        </div>
+
+        <div class="field">
+          <label class="label" for="password">Password</label>
+          <input id="password" type="password" class="input" required>
+        </div>
+
+        <button id="submit-btn" class="btn full" type="submit">Sign in</button>
+      </form>
+    </main>
+  </div>
+
+  <script src="api.js"></script>
+  <script>
+    var form = $("#form");
+    var errorBox = $("#form-error");
+
+    form.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      hideAlert(errorBox);
+
+      var btn = $("#submit-btn");
+      btn.disabled = true;
+      btn.textContent = "Signing in…";
+
+      try {
+        await api.login($("#email").value, $("#password").value);
+        location.replace("inbox.html");
+      } catch (err) {
+        showAlert(errorBox, err instanceof ApiError && err.status === 401
+          ? "Invalid email or password."
+          : "Unable to sign in. Please try again.");
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+      }
+    });
+  </script>
+</body>
+</html>

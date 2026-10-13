@@ -68,10 +68,13 @@ func NewCore(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Cor
 	}, nil
 }
 
-// Storage builds (once) the S3-compatible client and ensures the bucket exists.
-func (c *Core) Storage(ctx context.Context) (ports.Storage, error) {
+// Storage builds (once) the S3-compatible client. It does not contact the
+// storage server here: creating a client is lazy, and the bucket is ensured on
+// first use (see AttachmentService). This lets the API start even when object
+// storage is temporarily unavailable, so the message flow keeps working.
+func (c *Core) Storage() (ports.Storage, error) {
 	c.storageOnce.Do(func() {
-		objectStorage, err := storage.New(ctx, storage.Options{
+		objectStorage, err := storage.New(storage.Options{
 			Endpoint:       c.Config.Storage.Endpoint,
 			PublicEndpoint: c.Config.Storage.PublicEndpoint,
 			AccessKey:      c.Config.Storage.AccessKey,
@@ -82,10 +85,6 @@ func (c *Core) Storage(ctx context.Context) (ports.Storage, error) {
 		})
 		if err != nil {
 			c.storageErr = fmt.Errorf("bootstrap: storage: %w", err)
-			return
-		}
-		if err := objectStorage.EnsureBucket(ctx); err != nil {
-			c.storageErr = fmt.Errorf("bootstrap: ensure bucket: %w", err)
 			return
 		}
 		c.storage = objectStorage
@@ -123,8 +122,8 @@ func (c *Core) ConversationService() *app.ConversationService {
 	return app.NewConversationService(c.Store, c.IDs, c.Clock, c.Config.Host.Email, 5)
 }
 
-func (c *Core) AttachmentService(ctx context.Context) (*app.AttachmentService, error) {
-	objectStorage, err := c.Storage(ctx)
+func (c *Core) AttachmentService() (*app.AttachmentService, error) {
+	objectStorage, err := c.Storage()
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +143,7 @@ func (c *Core) Worker() (*app.Worker, error) {
 // API assembles the HTTP transport for the requested service contexts. Only the
 // dependencies a context needs are built (for example, no storage client is
 // created for the identity or conversation service).
-func (c *Core) API(ctx context.Context, enable transporthttp.Enable) (*transporthttp.API, error) {
+func (c *Core) API(enable transporthttp.Enable) (*transporthttp.API, error) {
 	opts := transporthttp.Options{
 		Config: c.Config,
 		Logger: c.Logger,
@@ -162,7 +161,7 @@ func (c *Core) API(ctx context.Context, enable transporthttp.Enable) (*transport
 		opts.Conversations = c.ConversationService()
 	}
 	if enable.Attachment {
-		attachments, err := c.AttachmentService(ctx)
+		attachments, err := c.AttachmentService()
 		if err != nil {
 			return nil, err
 		}

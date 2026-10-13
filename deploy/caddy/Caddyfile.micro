@@ -1,6 +1,5 @@
-# Caddyfile for the microservice layout.
-# Caddy only knows the gateway and the web frontend; the gateway fans out to the
-# individual services.
+# Caddyfile for the microservice layout — TLS termination and a single entry
+# point to the API gateway. The frontend is a static site served separately.
 
 {$SITE_ADDRESS:http://localhost} {
 	encode zstd gzip
@@ -13,10 +12,6 @@
 	}
 	handle /readyz {
 		reverse_proxy gateway:8080
-	}
-
-	handle {
-		reverse_proxy web:3000
 	}
 
 	log {

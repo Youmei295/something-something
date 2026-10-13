@@ -14,9 +14,9 @@ help: ## Show this help
 api-tidy: ## go mod tidy
 	cd $(API_DIR) && go mod tidy
 
-.PHONY: api-build
-api-build: ## Build api + worker binaries into bin/
-	cd $(API_DIR) && go build -o ../../bin/api ./cmd/api && go build -o ../../bin/worker ./cmd/worker
+.PHONY: build
+build: ## Build all service binaries into bin/
+	mkdir -p bin && cd $(API_DIR) && go build -o ../../bin/ ./cmd/...
 
 .PHONY: api-run
 api-run: ## Run the API locally
@@ -63,25 +63,17 @@ vet: ## go vet
 .PHONY: lint
 lint: fmt vet ## Format and vet
 
-## ---- Frontend ----
+## ---- Frontend (static, no build) ----
 
-.PHONY: web-install
-web-install: ## Install frontend deps
-	cd $(WEB_DIR) && npm install
-
-.PHONY: web-dev
-web-dev: ## Run frontend dev server
-	cd $(WEB_DIR) && npm run dev
-
-.PHONY: web-build
-web-build: ## Build frontend
-	cd $(WEB_DIR) && npm run build
-
-.PHONY: web-lint
-web-lint: ## Lint frontend
-	cd $(WEB_DIR) && npm run lint
+.PHONY: web-serve
+web-serve: ## Serve the static frontend on :3000
+	python3 -m http.server 3000 --directory $(WEB_DIR)
 
 ## ---- Stack ----
+
+.PHONY: infra-up
+infra-up: ## Start only infrastructure (Postgres + storage)
+	docker compose -f $(COMPOSE_DIR)/docker-compose.yml --env-file $(COMPOSE_DIR)/.env up -d postgres storage
 
 .PHONY: up
 up: ## Start the whole stack (docker compose)
@@ -104,4 +96,4 @@ logs: ## Tail stack logs
 	docker compose -f $(COMPOSE_DIR)/docker-compose.yml --env-file $(COMPOSE_DIR)/.env logs -f --tail=100
 
 .PHONY: check
-check: lint test web-lint web-build ## Run all checks
+check: lint test ## Run all checks

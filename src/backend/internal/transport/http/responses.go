@@ -59,6 +59,8 @@ func statusFor(err error) (int, string) {
 		return http.StatusRequestEntityTooLarge, "payload too large"
 	case errors.Is(err, domain.ErrUnsupported):
 		return http.StatusUnsupportedMediaType, "unsupported media type"
+	case errors.Is(err, domain.ErrUnavailable):
+		return http.StatusServiceUnavailable, "service unavailable"
 	default:
 		return http.StatusInternalServerError, "internal server error"
 	}

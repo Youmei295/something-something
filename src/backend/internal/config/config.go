@@ -53,15 +53,14 @@ type StorageConfig struct {
 }
 
 type MailerConfig struct {
-	Driver          string // console | smtp | postmark
-	FromAddress     string
-	FromName        string
-	PostmarkToken   string
-	SMTPHost        string
-	SMTPPort        int
-	SMTPUsername    string
-	SMTPPassword    string
-	SMTPUseSTARTTLS bool
+	Driver        string // console | smtp | postmark
+	FromAddress   string
+	FromName      string
+	PostmarkToken string
+	SMTPHost      string
+	SMTPPort      int
+	SMTPUsername  string
+	SMTPPassword  string
 }
 
 type AuthConfig struct {
@@ -69,7 +68,6 @@ type AuthConfig struct {
 	CookieName   string
 	CookieSecure bool
 	CookieDomain string
-	VisitorTTL   time.Duration
 }
 
 type HostConfig struct {
@@ -117,29 +115,27 @@ func Load() (*Config, error) {
 			Endpoint:       env("STORAGE_ENDPOINT", "localhost:9000"),
 			PublicEndpoint: env("STORAGE_PUBLIC_ENDPOINT", ""),
 			AccessKey:      env("STORAGE_ACCESS_KEY", "minioadmin"),
-			SecretKey:      env("STORAGE_SECRET_KEY", "minioadmin"),
+			SecretKey:      env("STORAGE_SECRET_KEY", "change-me"),
 			Bucket:         env("STORAGE_BUCKET", "attachments"),
 			Region:         env("STORAGE_REGION", "us-east-1"),
 			UseSSL:         envBool("STORAGE_USE_SSL", false),
 			PresignTTL:     envDuration("STORAGE_PRESIGN_TTL", 15*time.Minute),
 		},
 		Mailer: MailerConfig{
-			Driver:          env("MAILER_DRIVER", "console"),
-			FromAddress:     env("MAIL_FROM_ADDRESS", "inbox@example.com"),
-			FromName:        env("MAIL_FROM_NAME", "Inbox"),
-			PostmarkToken:   env("POSTMARK_SERVER_TOKEN", ""),
-			SMTPHost:        env("SMTP_HOST", ""),
-			SMTPPort:        envInt("SMTP_PORT", 587),
-			SMTPUsername:    env("SMTP_USERNAME", ""),
-			SMTPPassword:    env("SMTP_PASSWORD", ""),
-			SMTPUseSTARTTLS: envBool("SMTP_USE_STARTTLS", true),
+			Driver:        env("MAILER_DRIVER", "console"),
+			FromAddress:   env("MAIL_FROM_ADDRESS", "inbox@example.com"),
+			FromName:      env("MAIL_FROM_NAME", "Inbox"),
+			PostmarkToken: env("POSTMARK_SERVER_TOKEN", ""),
+			SMTPHost:      env("SMTP_HOST", ""),
+			SMTPPort:      envInt("SMTP_PORT", 587),
+			SMTPUsername:  env("SMTP_USERNAME", ""),
+			SMTPPassword:  env("SMTP_PASSWORD", ""),
 		},
 		Auth: AuthConfig{
 			SessionTTL:   envDuration("SESSION_TTL", 7*24*time.Hour),
 			CookieName:   env("SESSION_COOKIE_NAME", "inbox_session"),
 			CookieSecure: envBool("SESSION_COOKIE_SECURE", false),
 			CookieDomain: env("SESSION_COOKIE_DOMAIN", ""),
-			VisitorTTL:   envDuration("VISITOR_TOKEN_TTL", 90*24*time.Hour),
 		},
 		Host: HostConfig{
 			Email:    env("HOST_EMAIL", "host@example.com"),
@@ -162,8 +158,6 @@ func Load() (*Config, error) {
 	}
 	return cfg, nil
 }
-
-func (c *Config) IsProduction() bool { return c.Env == "production" }
 
 // loadDotEnv applies KEY=VALUE pairs from a dotenv file to the process
 // environment, only when the key is not already set. It is best-effort: a

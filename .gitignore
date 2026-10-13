@@ -6,16 +6,6 @@ bin/
 src/backend/tmp/
 vendor/
 
-# ---- Node / Next.js ----
-node_modules/
-src/frontend/.next/
-src/frontend/out/
-src/frontend/.turbo/
-*.tsbuildinfo
-npm-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
 # ---- Env / secrets ----
 .env
 .env.local

@@ -15,36 +15,43 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/youmei295/something-something/src/backend/internal/config"
+	"github.com/youmei295/something-something/src/backend/internal/platform/cors"
 )
 
 type route struct {
 	prefix string
-	target *url.URL
 	proxy  *httputil.ReverseProxy
 }
 
 // Gateway routes incoming requests to services based on path prefixes.
 type Gateway struct {
-	routes []route
-	log    *slog.Logger
-	health []string
+	routes         []route
+	log            *slog.Logger
+	health         []string
+	allowedOrigins []string
 }
 
-// New builds a gateway from the configured upstream URLs. A blank upstream
-// disables that route, so a subset of services can be run during development.
-func New(cfg config.GatewayConfig, log *slog.Logger) (*Gateway, error) {
+// New builds a gateway from configuration. A blank upstream URL disables that
+// route, so a subset of services can be run during development.
+func New(cfg *config.Config, log *slog.Logger) (*Gateway, error) {
+	return newGateway(cfg.Gateway, cfg.HTTP.AllowedOrigins, log)
+}
+
+func newGateway(cfg config.GatewayConfig, allowedOrigins []string, log *slog.Logger) (*Gateway, error) {
+	// Prefixes have no trailing slash so that both a collection endpoint
+	// (e.g. /api/v1/conversations) and its subpaths match.
 	specs := []struct {
 		prefix string
 		rawURL string
 	}{
-		{"/api/v1/auth/", cfg.IdentityURL},
+		{"/api/v1/auth", cfg.IdentityURL},
 		{"/api/v1/messages", cfg.SubmissionURL},
-		{"/api/v1/visitor/", cfg.SubmissionURL},
-		{"/api/v1/conversations/", cfg.ConversationURL},
-		{"/api/v1/attachments/", cfg.AttachmentURL},
+		{"/api/v1/visitor", cfg.SubmissionURL},
+		{"/api/v1/conversations", cfg.ConversationURL},
+		{"/api/v1/attachments", cfg.AttachmentURL},
 	}
 
-	g := &Gateway{log: log}
+	g := &Gateway{log: log, allowedOrigins: allowedOrigins}
 	seen := map[string]struct{}{}
 	for _, spec := range specs {
 		if strings.TrimSpace(spec.rawURL) == "" {
@@ -59,11 +66,16 @@ func New(cfg config.GatewayConfig, log *slog.Logger) (*Gateway, error) {
 			log.Error("gateway upstream error",
 				slog.String("prefix", spec.prefix),
 				slog.String("error", err.Error()))
+			// Include CORS headers so the browser sees the real 502 instead of
+			// an opaque "CORS request did not succeed".
+			if origin := strings.TrimRight(r.Header.Get("Origin"), "/"); cors.Allowed(origin, allowedOrigins) {
+				cors.SetHeaders(w, origin)
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadGateway)
 			_, _ = w.Write([]byte(`{"error":"upstream unavailable"}`))
 		}
-		g.routes = append(g.routes, route{prefix: spec.prefix, target: target, proxy: proxy})
+		g.routes = append(g.routes, route{prefix: spec.prefix, proxy: proxy})
 
 		if _, ok := seen[target.String()]; !ok {
 			seen[target.String()] = struct{}{}
@@ -83,6 +95,15 @@ func (g *Gateway) Handler() http.Handler {
 }
 
 func (g *Gateway) dispatch(w http.ResponseWriter, r *http.Request) {
+	// Answer preflight locally so it works even when a service is down.
+	if r.Method == http.MethodOptions {
+		if origin := strings.TrimRight(r.Header.Get("Origin"), "/"); cors.Allowed(origin, g.allowedOrigins) {
+			cors.SetHeaders(w, origin)
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	var matched *route
 	for i := range g.routes {
 		if strings.HasPrefix(r.URL.Path, g.routes[i].prefix) {

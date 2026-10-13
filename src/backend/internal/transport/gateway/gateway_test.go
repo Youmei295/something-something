@@ -16,12 +16,15 @@ func TestGateway_RoutesByPrefix(t *testing.T) {
 	defer submission.Close()
 	conversation := httptest.NewServer(marker("conversation"))
 	defer conversation.Close()
+	attachment := httptest.NewServer(marker("attachment"))
+	defer attachment.Close()
 
-	gw, err := New(config.GatewayConfig{
+	gw, err := newGateway(config.GatewayConfig{
 		IdentityURL:     identity.URL,
 		SubmissionURL:   submission.URL,
 		ConversationURL: conversation.URL,
-	}, slog.Default())
+		AttachmentURL:   attachment.URL,
+	}, []string{"http://localhost:3000"}, slog.Default())
 	if err != nil {
 		t.Fatalf("new gateway: %v", err)
 	}
@@ -34,7 +37,11 @@ func TestGateway_RoutesByPrefix(t *testing.T) {
 		{"/api/v1/auth/login", "identity"},
 		{"/api/v1/messages", "submission"},
 		{"/api/v1/visitor/threads/abc", "submission"},
+		{"/api/v1/conversations", "conversation"}, // collection endpoint
 		{"/api/v1/conversations/123", "conversation"},
+		{"/api/v1/conversations/123/replies", "conversation"},
+		{"/api/v1/attachments/upload-url", "attachment"},
+		{"/api/v1/attachments/123/download", "attachment"},
 	}
 	for _, tc := range cases {
 		rec := httptest.NewRecorder()
@@ -47,7 +54,7 @@ func TestGateway_RoutesByPrefix(t *testing.T) {
 }
 
 func TestGateway_UnknownRoute(t *testing.T) {
-	gw, err := New(config.GatewayConfig{}, slog.Default())
+	gw, err := newGateway(config.GatewayConfig{}, nil, slog.Default())
 	if err != nil {
 		t.Fatalf("new gateway: %v", err)
 	}
@@ -69,7 +76,7 @@ func TestGateway_ReadyProbesUpstreams(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	gw, err := New(config.GatewayConfig{IdentityURL: upstream.URL}, slog.Default())
+	gw, err := newGateway(config.GatewayConfig{IdentityURL: upstream.URL}, nil, slog.Default())
 	if err != nil {
 		t.Fatalf("new gateway: %v", err)
 	}
@@ -78,6 +85,47 @@ func TestGateway_ReadyProbesUpstreams(t *testing.T) {
 	gw.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("readyz = %d, want 200", rec.Code)
+	}
+}
+
+func TestGateway_PreflightHandledLocally(t *testing.T) {
+	gw, err := newGateway(config.GatewayConfig{}, []string{"http://localhost:3000"}, slog.Default())
+	if err != nil {
+		t.Fatalf("new gateway: %v", err)
+	}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodOptions, "/api/v1/auth/login", nil)
+	req.Header.Set("Origin", "http://127.0.0.1:3000") // localhost reflection
+	req.Header.Set("Access-Control-Request-Method", "POST")
+	gw.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("preflight = %d, want 204", rec.Code)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://127.0.0.1:3000" {
+		t.Fatalf("Allow-Origin = %q", got)
+	}
+	if rec.Header().Get("Access-Control-Allow-Credentials") != "true" {
+		t.Fatal("expected Allow-Credentials: true")
+	}
+}
+
+func TestGateway_UpstreamErrorIncludesCORS(t *testing.T) {
+	// Point at a closed port so the proxy errors.
+	gw, err := newGateway(config.GatewayConfig{IdentityURL: "http://127.0.0.1:1"}, []string{"http://localhost:3000"}, slog.Default())
+	if err != nil {
+		t.Fatalf("new gateway: %v", err)
+	}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+	req.Header.Set("Origin", "http://localhost:3000")
+	gw.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("upstream error = %d, want 502", rec.Code)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:3000" {
+		t.Fatalf("error response missing CORS header, got %q", got)
 	}
 }
 

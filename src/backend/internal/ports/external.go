@@ -11,10 +11,9 @@ import (
 type ObjectInfo struct {
 	Size        int64
 	ContentType string
-	ETag        string
 }
 
-// Storage abstracts object storage (MinIO locally, S3 in production). All
+// Storage abstracts object storage (SeaweedFS/S3 locally, S3 in production). All
 // methods work against an S3-compatible API so the adapter can be swapped.
 type Storage interface {
 	EnsureBucket(ctx context.Context) error
